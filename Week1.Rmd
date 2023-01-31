@@ -1,0 +1,21 @@
+---
+title: "Regression from A to Z"
+output: html_notebook
+---
+
+# Week 1:  Back to Basics
+
+```{r}
+pet <- c(rep("dog",6),rep("cat",5), rep("fish", 4), rep("rat",3))
+str(pet)
+pet.f <- as.factor(pet)
+y <- rnorm(length(pet))
+df <- data.frame(y,pet,pet.f)
+str(df)
+contrasts(pet) # don't run - returns an error
+contrasts(pet.f)
+
+
+
+```
+
