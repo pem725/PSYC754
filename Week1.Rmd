@@ -3,6 +3,12 @@ title: "Regression from A to Z"
 output: html_notebook
 ---
 
+```{r include=FALSE}
+library(car)
+library(DT)
+```
+
+
 # Week 1:  Back to Basics
 
 ```{r}
@@ -16,6 +22,44 @@ contrasts(pet) # don't run - returns an error
 contrasts(pet.f)
 
 
+```
+
+# Week 2:  Rolling up our sleeves
+
+```{r}
+N <- 250
+x1 <- rnorm(N, 50, 3)
+x2 <- rnorm(N, 10, 2)
+x3 <- rnorm(N)
+x4 <- rnorm(N, 0, 10) + x1 + x2 + x3
+
+y1 <- x1 + x2 + x3 + rnorm(N, 0, 10)
+y2 <- x3 + rnorm(N)
+y3 <- x1 + x2 + x3 + x4 + rnorm(N, 0, 10)
+
+df <- data.frame(y, x1, x2, x3, x4)
+
+lm1 <- lm(y2~x3,df)
+lm2 <- lm(y1~x1+x2+x3+x4, df)
+lm3 <- lm(y3~x1+x2+x3+x4, df)
+
+# Cohen and Cohen r^2 = .25
+
+x <- rnorm(N)
+var(x)
+y <- x + rnorm(N,0,sqrt(3))
+var(y)
+lm4 <- lm(y~x)
+summary(lm4)
+
+
+
+```
+
+
+# Week 3:  Doing the basics
+
+```{r}
 
 ```
 
