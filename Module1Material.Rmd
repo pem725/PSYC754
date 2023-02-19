@@ -136,7 +136,7 @@ test$foo <- foo
 lm5 <- lm(y~foo,test)
 summary(lm5)
 
-aggregate(test$y, by=list(test$foo), mean)
+round(aggregate(test$y, by=list(test$foo), mean),2)
 
 levels(test$foo)
 contrasts(test$foo)
