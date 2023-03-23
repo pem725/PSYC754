@@ -143,4 +143,27 @@ contrasts(test$foo)
 
 ```
 
-Testing...123...testing
+# Week 5
+
+```{r}
+x1 <- rnorm(N)
+y <- x1 + x1^2 + x1^3
+y <- y + rnorm(N,0,sd=2*sd(y))
+df5 <- data.frame(y,x1)
+lm5 <- lm(y~x1,data=df5)
+summary(lm5)
+plot(lm5)
+lm5.fixed1 <- lm(y~x1,data=df5[-31,])
+plot(lm5.fixed1)
+summary(lm5.fixed1)
+plot(y~x1,data=df5)
+
+lm5a <- lm(y~x1+I(x1^2),data=df5)
+lm5b <- lm(y~x1+x1^2,data=df5)
+summary(lm5a)
+summary(lm5b)
+lm5c <- lm(y~x1+I(x1^2)+I(x1^3),data=df5)
+summary(lm5c)
+plot(lm5c)
+```
+
