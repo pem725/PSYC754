@@ -1,0 +1,154 @@
+---
+title: "Logistic Regression DEMO"
+author: "Patrick E. McKnight, Ph.D."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    number_sections: false
+    toc_float: true
+    df_print: paged
+    code_folding: show
+  pdf_document: default
+---
+
+```{r preamble, message=FALSE, warning=FALSE, include=FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	background = "#ADD8E6",
+	cache = TRUE,
+	tidy = 'styler',
+	class.source = "bg-warning",
+	class.output = "bg-success",
+	fig_caption = TRUE,
+	digits = 3
+)
+```
+
+```{r libraries, include=FALSE}
+using<-function(...) {
+    libs<-unlist(list(...))
+    req<-unlist(lapply(libs,require,character.only=TRUE))
+    need<-libs[req==FALSE]
+    if(length(need)>0){ 
+        install.packages(need)
+        lapply(need,require,character.only=TRUE)
+    }
+}
+using("tidyr","reshape2","plyr","ggplot2","psych","corrplot","DT","formatR","ggExtra","car")
+
+round_df <- function(df, digits) {
+  nums <- vapply(df, is.numeric, FUN.VALUE = logical(1))
+  df[,nums] <- round(df[,nums], digits = digits)
+  return(df)
+}
+```
+
+Logistic regression involves the same prediction process as ordinary regression with one caveat - the model must be specified with a different distribution.  Why?  First, you need to understand why we would ever do a logistic regression.  The reason is that our outcome (Y) is binary.  When would that happen?  When we have clear, discrete events that need to be predicted such as live or die, pass or fail, and get sick or remain healthy.  Each of these are common outcomes that many of us are interested in predicting.  Second, standard ordinary least squares regression - the models we discussed all semester - require our residuals to be normally distributed.  Models with binary DVs will never produce normal residuals because the observed variables are binary and the predicted values are going to be zeros and ones (if discretely predicted) or some predicted probably of being a one.  In either case, the residuals will not be normal.  Third, violations of the Gauss-Markov assumptions means that our OLS models will NOT be BLUE.  Thus, we need an alternative.  That alternative is the logistic regression.  Let me demonstrate:
+
+```{r Data}
+N <- 1000
+LR.dat <- data.frame(Y=rbinom(N,1,.2))
+LR.dat$x1 <- rnorm(N,1.1,1)*LR.dat$Y + rnorm(N,0,1)
+LR.dat$x2 <- rnorm(N,1,.75)*LR.dat$Y + rnorm(N)
+describe(LR.dat)
+```
+Consider the data above.  We have three variables (Y, x1, and x2).  The DV (Y) is binary (i.e., 0 or 1) and the predictors (x1 and x2) are continuous and uncentered.  We wish to understand the data in a way that can help us make predictions of Y - just as we would for any and all regression models.  The correlations among the variables are:
+
+```{r DataSummary}
+cor.plot(LR.dat)
+```
+
+# Regression using the lm() function
+
+Recall, we use the lm() function to test the following model:
+
+$$\hat{Y} = b_0 + b_1x_1 + b_2x_2 $$
+Each b can be interpreted as a weight that allows the conversion from the x values to Y values. 
+
+```{r LMs}
+lm1 <- lm(Y~x1+x2,data=LR.dat)
+summary(lm1)
+plot(lm1,ask=F)
+```
+
+Whoa!  What on earth is happening here?  We specified the wrong model.  Let's approach this with a better tool - the logistic regression model.  In R, we use the glm() function rather than the lm() function because the latter requires normal distribution theory models and we need another distribution other than normal.  Remember your assumptions here.  So much of what the G-M assumptions hinge on is normality (aka the Gaussian Normal Distribution).  Binary data - as you can see from the residual plots above - do not generate normal distributions of any kind.  So, we need to refit the model using a more flexible tool.  As I mentioned above, that tool is the glm() or Generalized Linear Model.
+
+# The Generalized Linear Model with glm()
+
+Now that we can see the mess that lm() made with our data, let's turn our attention to a more suitable model within the glm() function.  That function tests the following transformation of Y:
+
+$$log[p/(1-p)] = b_0 + b_1x_1 + b_2x_2 $$
+where $log[p/(1-p)]$ is called the log odds or logit.  That name is a fancy way of saying we transform the odds ratio (i.e., a fraction of the successes in the numerator to the failures in the denominator).  Permit me now to run the model and then dissect the results:
+
+```{r GLM}
+glm1 <- glm(Y~x1 + x2, family=binomial(link="logit"), data=LR.dat)
+summary(glm1)
+plot(glm1,ask=F)
+```
+
+We ought to expect a probability of the outcome to be predicted close to the observed rate in the sample.  With my simulated data, the probability of Y being 1 is just the mean of Y:
+
+```{r Ybar}
+mean(LR.dat$Y)
+```
+Thus, we ought to see results that help us make that prediction.  I bet you don't see  that value in any of the output.  Why not?  So what is different between the models?  Well, let's compare the coefficients first:
+
+```{r CoefComp}
+cocomp <- rbind(coef(lm1),coef(glm1))
+row.names(cocomp) <- c("lm()","glm()")
+round(cocomp,2)
+```
+The problem is that the OLS model (lm) treats the DV (Y) as if it were continuous - expecting the model to be suitable for a normal distribution in all senses.  The glm() results are not that easy to interpret as log odds ratios.  Instead, let's take the exponent of the coefficients and see if they make any more sense than the log odds values:
+
+```{r CoefComp2}
+cocomp <- rbind(coef(lm1),exp(coef(glm1)))
+row.names(cocomp) <- c("lm()","glm()")
+round(cocomp,2)
+```
+
+
+Look at the predictions the lm() model produces:
+
+```{r lmPred}
+hist(predict(lm1),xlab="Predicted Y", main="Predictions from lm()")
+hist(predict(glm1, type="response"),xlab="Predicted Y", main="Predictions from glm()")
+```
+
+What do you see?  I bet you see something that makes no sense in the lm() predictions.  Since Y can only be 0 or 1, making any prediction between the two is a bit odd.  Moreover, any prediction that falls outside those two values is clearly senseless.  The predictions made by the glm() are within an acceptable range but they come out as probabilities rather than binary values.  
+
+# Comparing Accuracies
+
+```{r}
+LR.dat$p.lm <- ifelse(predict(lm1) > .5, 1, 0)
+LR.dat$p.glm <- ifelse(predict(glm1, type="response") > .5, 1, 0)
+HitRate <- list(LM=mean(LR.dat$p.lm == LR.dat$Y),GLM=mean(LR.dat$p.glm == LR.dat$Y))
+HitRate
+```
+```{r ConTab}
+table(LR.dat$p.lm,LR.dat$Y)
+table(LR.dat$p.glm,LR.dat$Y)
+```
+
+AHA!  The phi coefficients (cor between binary variables) lies!!!  We have different hit rates
+
+```{r CTabA}
+source("https://raw.githubusercontent.com/pem725/MRES/master/R/rbayes.R")
+lm.rb <- rbayes(table(LR.dat$p.lm,LR.dat$Y))
+glm.rb <- rbayes(table(LR.dat$p.glm,LR.dat$Y))
+
+rb.out <- data.frame(LM=rep(NA,6),GLM=rep(NA,6))
+rb.out[1,] <- c(lm.rb$`Signal Detection Theory Results`$sensitivity,glm.rb$`Signal Detection Theory Results`$sensitivity)
+rb.out[2,] <- c(lm.rb$`Signal Detection Theory Results`$specificity,glm.rb$`Signal Detection Theory Results`$specificity)
+rb.out[3,] <- c(lm.rb$`Signal Detection Theory Results`$PPV, glm.rb$`Signal Detection Theory Results`$PPV)
+rb.out[4,] <- c(lm.rb$`Signal Detection Theory Results`$NPV, glm.rb$`Signal Detection Theory Results`$NPV)
+rb.out[5,] <- c(lm.rb$`Misc. Diagnostic Indicators`$`Miss Rate`,glm.rb$`Misc. Diagnostic Indicators`$`Miss Rate`)
+rb.out[6,] <- c(lm.rb$`Misc. Diagnostic Indicators`$NNT,glm.rb$`Misc. Diagnostic Indicators`$NNT)
+row.names(rb.out) <- c("Sensitivity","Specificity","Positive Predictive Value (PPV)","Negative Predictive Value (NPV)","Miss Rate","Number Needed to Treat (NNT)")
+round(rb.out,2)
+```
+
+
+
+
