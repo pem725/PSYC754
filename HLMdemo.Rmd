@@ -1,0 +1,181 @@
+---
+title: "Random Coefficients Modeling DEMO"
+author: "Patrick E. McKnight, Ph.D."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    number_sections: false
+    toc_float: true
+    df_print: paged
+    code_folding: show
+  pdf_document: default
+---
+
+```{r preamble, message=FALSE, warning=FALSE, include=FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	background = "#ADD8E6",
+	cache = TRUE,
+	tidy = 'styler',
+	class.source = "bg-warning",
+	class.output = "bg-success",
+	fig_caption = TRUE,
+	digits = 3
+)
+```
+
+```{r libraries, include=FALSE}
+using<-function(...) {
+    libs<-unlist(list(...))
+    req<-unlist(lapply(libs,require,character.only=TRUE))
+    need<-libs[req==FALSE]
+    if(length(need)>0){ 
+        install.packages(need)
+        lapply(need,require,character.only=TRUE)
+    }
+}
+using("tidyr","reshape2","plyr","ggplot2","psych","corrplot","DT","formatR","ggExtra","car","lavaan","dagitty","lavaanPlot","lme4","lmerTest")
+
+round_df <- function(df, digits) {
+  nums <- vapply(df, is.numeric, FUN.VALUE = logical(1))
+  df[,nums] <- round(df[,nums], digits = digits)
+  return(df)
+}
+```
+
+# The Data and Models
+
+The following data come from the now tainted top 50 home run hitters
+of all time in Major League Baseball (MLB).  I say tainted because MLB
+underwent a substantial steroids scandal that likely began in the mid
+1990s and continued until the recent crackdown last year.  The data
+from the top 50 home run hitters is relevant to our discussion because
+steroids provides a boost to power enabling the player to hit more
+home runs.  That boost ought to provide more home runs than would be
+expected by year for each player.  
+
+
+```{r DataPrep}
+HR <- read.table("./HR.dat",header=T)
+
+## Create new steroids variable here
+HR$steroids <- -1
+HR$steroids[HR$Yr > 1993] <- 1 # only players from the steroid era would likely be on the juice
+contrasts(as.factor(HR$steroids)) # default dummy coded
+
+## see?  No matter what you feed it, R will convert to a dummy coded variable
+## Let's use more sensible names and lables since we will treat steroids as a factor
+
+HR$steroids <- "Innocent"
+HR$steroids[HR$Yr > 1993] <- "Suspect"
+HR$steroids.f <- as.factor(HR$steroids)
+
+## we now take a break to offer you students a nice resource:
+## https://bookdown.org/pingapang9/linear_models_bookdown/chap-contrasts.html
+## read it.  Avail yourselves of a fine education for free!
+
+contrasts(HR$steroids.f) # dummy coded
+
+## change to effects coding
+contrasts(HR$steroids.f) <- contr.sum
+
+## change to weighted effects coding
+#contrasts(HR$steroids.f) <- contr.wsum
+
+tmp.mat <- contrasts(HR$steroids.f)
+tmp.mat
+table(HR$steroids)
+
+HR$steroids.we <- HR$steroids.f
+contrasts(HR$steroids.we) <- c(1,tmp.mat[2,1]*table(HR$steroids)[[1]]/table(HR$steroids)[[2]])
+contrasts(HR$steroids.we)
+
+HR$Year1 <- HR$Yr
+HR$Year2 <- HR$Yr
+
+split(HR$Year1,HR$Player) <- lapply(split(HR$Yr,HR$Player), min)
+split(HR$Year2,HR$Player) <- lapply(split(HR$Yr,HR$Player), max)
+HR$Year <- HR$Yr - HR$Year1 + 1
+HR$Year.back <- HR$Year2 - HR$Yr + 1
+HR$Year.c <- HR$Year - mean(HR$Year)
+HR.4 <- subset(HR,Year < 5)
+HR.last5 <- subset(HR,Year.back < 6)
+HR.last5$years <- abs(HR.last5$Year.back - 6)
+```
+
+
+```{r models}
+# ns model below
+lm1 <- lm(HR~Year.c*steroids.we,data=HR.last5)
+summary(lm1)
+
+lm1.err <- lm(HR~Year*as.factor(steroids), data=HR.last5)
+summary(lm1.err)
+```
+  
+What do these results suggest?  The results indicate that players on
+steroids performed differently than players not on steroids.  How
+differently?  Look at Figure for the main effects and
+interaction.
+
+```{r}
+plot(HR~Year.c,data=HR.last5, main="Last 5 Years in MLB")
+abline(lm(HR~Year.c,data=HR.last5),lwd=2,lty=2,col="red")
+abline(lm(HR~Year.c,data=subset(HR.last5,steroids=="Suspect")),lwd=2,col="blue")
+abline(lm(HR~Year.c,data=subset(HR.last5,steroids=="Innocent")),lwd=2,col="green")
+legend("topright",c("All Data","Steroid Suspects","non-Steroid Suspects"),lty=c(2,1,1),lwd=2,col=c("red","blue","green"))
+```
+
+Note that the steroid users (er, suspects) appear to fall off more rapidly than the
+non-steroid users (or suspects).  To better understand the
+nature of this effect, we ought to decompose the effects by hand.  I
+will work out the simple slope and simple intercept on the board so
+you can follow each step.
+
+# Looking deeper
+
+## Plots by Player
+
+```{r PlotByPlayer}
+ggplot(HR.last5,aes(x=Year,y=HR,col=Player)) + geom_smooth(method="lm",formula=y~x,se=F) + ylim(0,78) + theme(legend.position="none")
+```
+
+## Models Anew!
+
+```{r LMmodeling}
+lm0 <- lm(HR~1, data=HR.last5)
+summary(lm0)
+lm1 <- lm(HR~Year.c*steroids.we, data=HR.last5)
+summary(lm1)
+lme0 <- lmer(HR~ 1 + (1 | Player), data=HR.last5)
+summary(lme0)
+lme1 <- lmer(HR~Year.c + (1 | Player), data=HR.last5)
+summary(lme1)
+## lme1 last model that runs (4/20/2023)
+lme2 <- lmer(HR~Year.c + (Year.c | Player), data=HR.last5)
+## whoopsie!  We met the limits to our data and modeling.  Let's try a different attack
+lme3 <- lmer(HR~Year.c + steroids.we + (1 | Player), data=HR.last5)
+summary(lme3)
+lme4 <- lmer(HR~Year.c + steroids.we + (steroids.we | Player), data=HR.last5)
+## whoopsie!  We met another limit.  New attack
+lme5 <- lmer(HR~Year.c*steroids.we + (1 | Player), data=HR.last5)
+summary(lme5)
+```
+
+## Coeficients
+
+```{r LMERcoefs}
+round(coef(lm0),2)
+round(coef(lme0)$Player,2)
+round(coef(lme1)$Player,2)
+round(coef(lme3)$Player,2)
+round(coef(lme5)$Player,2)
+```
+
+
+```{r nestMcomp}
+anova(lme0,lme1,lme3,lme5)
+```
+

@@ -1,0 +1,130 @@
+---
+title: "Module 2:  Mediation and Moderation"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r include=FALSE}
+library(car)
+library(DT)
+```
+
+
+# Week 6:  
+
+```{r Moderation}
+dat6a <- read.csv("../Resources/week5data/dat5.csv")
+dat6b <- read.csv("../Resources/week5data/week5dat2.csv")
+
+lm6a <- lm(y~x1*x2, dat6a)
+summary(lm6a)
+plot(dat6a)
+
+dat6a$x1.c <- dat6a$x1 - mean(dat6a$x1)
+dat6a$x2.c <- dat6a$x2 - mean(dat6a$x2)
+dat6a$y.c <- dat6a$y - mean(dat6a$y)
+dat6a$x1x2.c <- dat6a$x1x2 - mean(dat6a$x1x2)
+
+lm6b <- lm(y.c ~ x1.c*x2.c, data=dat6a)
+summary(lm6b)
+
+vif(lm6a)
+vif(lm6b)
+
+vif.hc1.lm <- lm(x1~x2 + x1x2, data=dat6a)
+
+
+vif.hc2.lm <- lm(x1.c~x2.c + x1x2.c, data=dat6a)
+summary(vif.hc2.lm)
+out1 <- summary(vif.hc1.lm)
+out2 <- summary(vif.hc2.lm)
+
+lm6c <- lm(y.c~x1.c:x2.c, dat6a)
+summary(lm6c)
+
+
+vif.hc1.x1 <- (1/(1-out1$r.squared))
+vif.hc1.x1.c <- (1/(1-out2$r.squared))
+
+vif.hc1.x1.c
+
+```
+
+# Week 7/8
+
+```{r}
+round(cor(dat6a),2)
+.78^2
+(.78^2) + (.07^2)
+(.78^2) + (.07^2) + (.77^2) - (.72^2) - (.16^2)
+
+lm1 <- lm(y~x1, data=dat6a)
+summary(lm1)
+lm2 <- lm(y~x1+x2, data=dat6a)
+summary(lm2)
+lm3 <- lm(y~x1*x2, data=dat6a)
+summary(lm3)
+
+
+dat6a$y.c <- dat6a$y - mean(dat6a$y)
+dat6a$x1.c <- dat6a$x1 - mean(dat6a$x1)
+dat6a$x2.c <- dat6a$x2 - mean(dat6a$x2)
+
+lm4 <- lm(y.c~x1.c*as.factor(x2.c), dat6a)
+summary(lm5)
+lm5 <- lm(y.c~x1.c*x2.c, dat6a)
+summary(lm4)
+
+
+summary(dat6a)
+
+q1 <- -.53
+q3 <- .47
+
+hist(dat6a$x2.c)
+
+```
+## Some notes here.
+
+### Centering
+$$C_i = x_i - \bar{x}$$
+
+
+### Standardizing
+$$Z_i = \frac{x_i - \bar{x}}{s_x}$$
+
+
+```{r}
+str(dat6a)
+dat6a$x2.f <- as.factor(dat6a$x2)
+levels(dat6a$x2.f)
+contrasts(dat6a$x2.f)
+dat6a$x2.c.f <- as.factor(dat6a$x2.c)
+levels(dat6a$x2.c.f)
+contrasts(dat6a$x2.c.f)
+
+pet <- c(rep("dog",50), rep("frog", 10), rep("emu", 10), rep("zebra", 10), rep("zebrafinch",10), rep("earthworm",10))
+str(pet)
+pet.f <- as.factor(pet)
+str(pet.f)
+levels(pet.f)
+contrasts(pet.f)
+pet.f2 <- relevel(pet.f,ref="emu")
+contrasts(pet.f2)
+
+contrasts(C(pet.f2, sum))
+```
+
+```{r}
+source("https://raw.githubusercontent.com/pem725/MRES/master/R/sobelsimple.R")
+
+med1 <- sobelsimple(dat6b$x,dat6b$m, dat6b$y)
+summary(med1)
+
+```
+
+```{r}
+
+```
+
